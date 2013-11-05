@@ -8,5 +8,5 @@ void loop(){
   int LDRReading = analogRead(LDR_Pin); 
 
   Serial.println(LDRReading);
-  delay(250); //just here to slow down the output for easier reading
+  delay(250);
 }
