@@ -18,7 +18,7 @@ void loop(void)
 { 
   DHT22_ERROR_t errorCode;
 
-  delay(2000);
+  delay(4000);
   Serial.print("Requesting data...");
   errorCode = myDHT22.readData();
   if(errorCode == DHT_ERROR_NONE)
