@@ -57,8 +57,7 @@ void setup() {
 
 void isr_pin2() {
     
-    // @imp donot use millis() for comparison
-    // millis() donot advance inside an ISR
+    // @imp millis() donot advance inside an ISR
     irq_time = millis();    
     if((irq_time - last_irq_time) > 250) {
         rain_counter = rain_counter +1 ;
@@ -68,7 +67,7 @@ void isr_pin2() {
 
 void serial_output() {
     Serial.print("Yuktix H ");
-    if(temp1 > STEEL_MELTING_POINT) { 
+    if(dht22_temp > STEEL_MELTING_POINT) { 
         Serial.println("ERR");
         Serial.print("T ");
         Serial.print("ERR");
@@ -93,7 +92,7 @@ void lcd_output() {
     // line1
     lcd.setCursor(0,0);
     lcd.print("Yuktix H ");
-    if(temp1 > STEEL_MELTING_POINT) { 
+    if(dht22_temp > STEEL_MELTING_POINT) { 
         lcd.print("ERR");
         lcd.setCursor(0,1);
         lcd.print("T ");
@@ -127,17 +126,16 @@ void loop() {
     // bmp085_temp = bmp.readTemperature();
 
 #if !defined(AWS_NO_SERIAL)
-        serial_output();
+    serial_output();
 #endif
 
 #if !defined(AWS_NO_LCD)
     lcd_output();
 #endif
 
-    // 10s delay
+    // 1 min. delay
     // DHT22 pins need 2 seconds
-    for(int i = 0 ; i < 1000 ; i++) {
-        //10 ms
+    for(int i = 0 ; i < 6000 ; i++) {
         delayMicroseconds(10000);
     }
 }
