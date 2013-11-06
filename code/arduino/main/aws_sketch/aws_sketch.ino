@@ -1,3 +1,5 @@
+
+
 /*
  * main aws sketch
  *
@@ -13,19 +15,20 @@
  * 
  */
 
-
+#include <Wire.h>
 #include <DHT22.h>
 #include "Adafruit_BMP085.h"
 
+
+
+#define DHT22_PIN 6
+#define STEEL_MELTING_POINT 1371
+#define AWS_NO_SERIAL 1 
 
 // Analog pin A4(SDA),A5(SCL)
 Adafruit_BMP085 bmp;
 DHT22 myDHT22(DHT22_PIN);
 DHT22_ERROR_t dht22_error;
-
-#define DHT22_PIN 6
-#define STEEL_MELTING_POINT 1371
-#define AWS_NO_LCD 1 
 
 #if !defined(AWS_NO_LCD)
 #include <LiquidCrystal.h>
@@ -65,12 +68,13 @@ void isr_pin2() {
     }
 }
 
-void serial_output() {
+#if !defined(AWS_NO_SERIAL)
+void serial_output(DHT22_ERROR_t dht22_error) {
     Serial.print("Yuktix H ");
     if(dht22_temp > STEEL_MELTING_POINT) { 
-        Serial.println("ERR");
-        Serial.print("T ");
-        Serial.print("ERR");
+        Serial.println("ERR ");
+        Serial.print(dht22_error);
+        
     } else {
         Serial.println(humidity);
         Serial.print("T ");
@@ -83,8 +87,15 @@ void serial_output() {
     Serial.print(rain_counter);
 
 }
+#endif
 
-void lcd_output() {
+#if !defined(AWS_NO_LCD)
+void lcd_output(DHT22_ERROR_t dht22_error) {
+  
+    int t1 ;
+    int p1 ;
+    int h1 ;
+    
     pinMode(lcd_pin, OUTPUT);
     digitalWrite(lcd_pin, HIGH);
     lcd.begin(16,2);       
@@ -95,47 +106,59 @@ void lcd_output() {
     if(dht22_temp > STEEL_MELTING_POINT) { 
         lcd.print("ERR");
         lcd.setCursor(0,1);
-        lcd.print("T ");
-        lcd.print("ERR");
+        lcd.print(dht22_error);
+        
     } else {
-        lcd.print(humidity);
+        h1 = round(humidity);
+        lcd.print(h1);
+        lcd.print("%");
         lcd.setCursor(0,1);
         lcd.print("T ");
-        lcd.print(dht22_temp);
+        t1 = round(dht22_temp);
+        lcd.print(t1);
     }
 
     lcd.print(" P ");
-    lcd.print(pressure);
+    p1 = round(pressure/10.0);
+    lcd.print(p1);
     lcd.print(" R ");
     lcd.print(rain_counter);
 }
+#endif
 
 void loop() {
 
+    DHT22_ERROR_t dht22_error ;
+     // DHT22 pins need 2 seconds
+    for(int i = 0 ; i < 300 ; i++) {
+        delayMicroseconds(10000);
+    }
+    
     dht22_error = myDHT22.readData();
-
+    
     if(dht22_error == DHT_ERROR_NONE) {
         dht22_temp = myDHT22.getTemperatureC();
         humidity = myDHT22.getHumidity();
+        
     } else {
         // absurd value
         dht22_temp = 9999.0 ;
+        
     }
 
     pressure = bmp.readPressure();
     // bmp085_temp = bmp.readTemperature();
 
 #if !defined(AWS_NO_SERIAL)
-    serial_output();
+    serial_output(dht22_error);
 #endif
 
 #if !defined(AWS_NO_LCD)
-    lcd_output();
+    lcd_output(dht22_error);
 #endif
 
-    // 1 min. delay
-    // DHT22 pins need 2 seconds
-    for(int i = 0 ; i < 6000 ; i++) {
+    // total 30s delay
+    for(int i = 0 ; i < 2700 ; i++) {
         delayMicroseconds(10000);
     }
 }
