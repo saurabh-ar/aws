@@ -1,5 +1,3 @@
-
-
 /*
  * main aws sketch
  *
@@ -15,9 +13,10 @@
  * 
  */
 
+#include <avr/wdt.h>
 #include <Wire.h>
 #include <DHT22.h>
-#include "Adafruit_BMP085.h"
+#include <Adafruit_BMP085.h>
 
 
 
@@ -54,6 +53,8 @@ void setup() {
 #if !defined(AWS_NO_SERIAL)
     Serial.begin(9600);
 #endif
+    // watchdog enabled
+    wdt_enable(WDTO_8S);
 
 }
  
@@ -66,6 +67,12 @@ void isr_pin2() {
         rain_counter = rain_counter +1 ;
         last_irq_time = irq_time ;
     }
+}
+
+float rain_display() {
+    // arduino print defaults to 2 decimal places
+    float total = rain_counter * 0.01 ;
+    // @todo reset rain counter at 9AM
 }
 
 #if !defined(AWS_NO_SERIAL)
@@ -129,9 +136,12 @@ void lcd_output(DHT22_ERROR_t dht22_error) {
 void loop() {
 
     DHT22_ERROR_t dht22_error ;
-     // DHT22 pins need 2 seconds
-    for(int i = 0 ; i < 300 ; i++) {
+     // DHT22 pin needs 2 seconds
+    for(int i = 0 ; i < 250 ; i++) {
         delayMicroseconds(10000);
+        if(i % 100 == 0 ) { 
+            wdt_reset(); 
+        }
     }
     
     dht22_error = myDHT22.readData();
@@ -143,7 +153,6 @@ void loop() {
     } else {
         // absurd value
         dht22_temp = 9999.0 ;
-        
     }
 
     pressure = bmp.readPressure();
@@ -157,8 +166,14 @@ void loop() {
     lcd_output(dht22_error);
 #endif
 
-    // total 30s delay
-    for(int i = 0 ; i < 2700 ; i++) {
+    wdt_reset();
+
+    // total delay 30 seconds
+    for(int i = 0 ; i < 2750 ; i++) {
         delayMicroseconds(10000);
+        // pat watchdog every second
+        if(i % 100 == 0 ) { 
+            wdt_reset(); 
+        }
     }
 }
