@@ -22,8 +22,6 @@
 #include <DS1307RTC.h>
 #include <AWS.h>
 
-
-
 #define DHT22_PIN 6
 #define AWS_NO_SERIAL 1 
 
@@ -31,6 +29,11 @@
 Adafruit_BMP085 bmp;
 DHT22 myDHT22(DHT22_PIN);
 
+
+#if !defined(AWS_NO_GSM)
+#include <SoftwareSerial.h>
+SoftwareSerial gsmSerial(4,5);
+#endif
 
 #if !defined(AWS_NO_LCD)
 #include <LiquidCrystal.h>
@@ -74,17 +77,13 @@ void setup() {
     // sync interval is default 5 minutes
 
     rtc_code = init_rtc(__TIME__,__DATE__);
-    for(int i = 0 ; i < 200 ; i++) {
-      delayMicroseconds(1000);
-    }
+    micro_delay(20);
 
     if(rtc_code == AWS_RTC_ERROR_NONE) {
         setSyncProvider(RTC.get);   
         if(timeStatus()!= timeSet) {
             // wait a bit
-            for(int i = 0 ; i < 4000 ; i++) {
-                delayMicroseconds(1000);
-            }
+            micro_delay(400);
         }
 
         // try again
@@ -98,13 +97,20 @@ void setup() {
     attachInterrupt(0,isr_pin2,RISING);
     last_irq_time = 0 ;
 
-    Alarm.timerRepeat(2,pat_watchdog);
-    Alarm.timerRepeat(60,update_display);
-    Alarm.alarmRepeat(8,30,0, send_bulletin);
-
 #if !defined(AWS_NO_SERIAL)
     Serial.begin(9600);
 #endif
+
+#if !defined(AWS_NO_GSM)
+    gsmSerial.println("AT+CMGF=1");
+    micro_delay(20);
+    gsmSerial.println("AT+CSMS=1");
+    micro_delay(20);
+    gsmSerial.println("AT+CNMI=2,2,0,0");
+    micro_delay(20);
+#endif
+
+    Alarm.alarmRepeat(8,30,0, send_bulletin);
 
 }
 
@@ -118,16 +124,20 @@ void isr_pin2() {
     }
 }
 
+// param n is to ensure n*10 ms delay
+void micro_delay(int n) {
+    for(int i = 0 ; i < n ; i++) {
+        delayMicroseconds(10000);
+        // pat watchdog every 100*10 ms
+        if((i > 100) && (i %100 == 0 ))
+            wdt_reset();
+    }
+}
+
 void update_display() {
     
     // DHT22 pin needs 2 seconds
-    for(int i = 0 ; i < 250 ; i++) {
-        delayMicroseconds(10000);
-        if(i % 100 == 0 ) { 
-            wdt_reset(); 
-        }
-    }
-    
+    micro_delay(250);
     dht22_code = myDHT22.readData();
     
     if(dht22_code == DHT_ERROR_NONE) {
@@ -168,12 +178,39 @@ void send_bulletin() {
         rain_counter_reset = false ;
     }
 
-    // @todo send SMS 
-
-}
-
-void pat_watchdog() {
+#if !defined(AWS_NO_GSM)
+    gsmSerial.print("\r");  
+    micro_delay(20);
+    gsmSerial.print("AT+CMGF=1\r");
+    micro_delay(20);
+    gsmSerial.print("AT+CMGS=\"+918553518338\"\r"); 
+    micro_delay(20);
+    // pat watchdog
     wdt_reset();
+
+    gsmSerial.print("Yuktix H");
+    if(dht22_code !=  DHT_ERROR_NONE) { 
+        gsmSerial.println("ERR");
+        gsmSerial.print(dht22_code);
+        
+    } else {
+        gsmSerial.println(humidity);
+        gsmSerial.print(" T");
+        gsmSerial.print(dht22_temp);
+    }
+
+    gsmSerial.print(" P");
+    gsmSerial.print(pressure);
+    gsmSerial.print(" R");
+    gsmSerial.print(total_rain);
+    gsmSerial.println();
+    gsmSerial.write(0x1A);
+    micro_delay(100); 
+    // pat watchdog
+    wdt_reset();
+
+#endif
+
 }
 
 void calculate_rain() {
@@ -229,7 +266,7 @@ void serial_output() {
     Serial.print(" P");
     Serial.print(pressure);
     Serial.print(" R");
-    Serial.print(rain_counter);
+    Serial.print(total_rain);
 
 }
 #endif
@@ -267,10 +304,14 @@ void lcd_output() {
     p1 = round(pressure/10.0);
     lcd.print(p1);
     lcd.print(" R");
-    lcd.print(rain_counter);
+    lcd.print(total_rain);
 }
 #endif
 
 void loop() {
 
+    update_display();
+    wdt_reset();
+    // refresh in 30 seconds
+    micro_delay(2750);
 }
