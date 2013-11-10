@@ -18,6 +18,7 @@
 #include <DHT22.h>
 #include <Adafruit_BMP085.h>
 #include <Time.h>
+#include <TimeAlarms.h>
 #include <DS1307RTC.h>
 #include <AWS.h>
 
@@ -29,7 +30,7 @@
 // Analog pin A4(SDA),A5(SCL)
 Adafruit_BMP085 bmp;
 DHT22 myDHT22(DHT22_PIN);
-DHT22_ERROR_t dht22_code;
+
 
 #if !defined(AWS_NO_LCD)
 #include <LiquidCrystal.h>
@@ -41,19 +42,19 @@ int lcd_pin = 13;
 // globals
 volatile int rain_counter = 0 ;
 volatile bool rain_counter_reset = false ;
+
 volatile unsigned long irq_time ;
 volatile unsigned long last_irq_time ;
 
 float dht22_temp ;
 float humidity ;
 int32_t pressure ;
+float total_rain = 0.0;
 
 const char *month_names[12] = {
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
 };
-
-char bulletin[33] ;
 
 tmElements_t tm;
 
@@ -96,12 +97,16 @@ void setup() {
     // INT0 interrupt
     attachInterrupt(0,isr_pin2,RISING);
     last_irq_time = 0 ;
+
+    Alarm.timerRepeat(2,pat_watchdog);
+    Alarm.timerRepeat(60,update_display);
+    Alarm.alarmRepeat(8,30,0, send_bulletin);
+
 #if !defined(AWS_NO_SERIAL)
     Serial.begin(9600);
 #endif
 
 }
- 
 
 void isr_pin2() {
     
@@ -113,29 +118,67 @@ void isr_pin2() {
     }
 }
 
-float calculate_rain() {
+void update_display() {
+    
+    // DHT22 pin needs 2 seconds
+    for(int i = 0 ; i < 250 ; i++) {
+        delayMicroseconds(10000);
+        if(i % 100 == 0 ) { 
+            wdt_reset(); 
+        }
+    }
+    
+    dht22_code = myDHT22.readData();
+    
+    if(dht22_code == DHT_ERROR_NONE) {
+        dht22_temp = myDHT22.getTemperatureC();
+        humidity = myDHT22.getHumidity();
+        
+    } else {
+        // absurd value
+        dht22_temp = 9999.0 ;
+    }
 
-    // arduino float is 2 decimal places
-    float total = rain_counter * 0.01 ;
-    int hour = hour();
+    pressure = bmp.readPressure();
+    calculate_rain();
+
+#if !defined(AWS_NO_SERIAL)
+    serial_output();
+#endif
+
+#if !defined(AWS_NO_LCD)
+    lcd_output();
+#endif
+
+}
+
+void send_bulletin() {
+
+    int hr = hour();
 
     // reset rain counter at 9AM
     // condition >= is for a power failure 
     // missing the 9'0 clock window
-    if(!rain_counter_reset && (hour >= 9)) {
+    if(!rain_counter_reset && (hr >= 9)) {
         rain_counter_reset = true ;
         rain_counter = 0 ;
-        // @todo send rain bulletin
     } 
 
-    if(hour != 9 && rain_counter_reset) {
+    if(hr != 9 && rain_counter_reset) {
         rain_counter_reset = false ;
     }
+
+    // @todo send SMS 
+
 }
 
-void create_bulletin() {
+void pat_watchdog() {
+    wdt_reset();
+}
 
-
+void calculate_rain() {
+    // arduino float is 2 decimal places
+    total_rain = rain_counter * 0.01 ;
 }
 
 aws_error_t init_rtc(const char* str_time, const char* str_date) {
@@ -172,27 +215,27 @@ aws_error_t init_rtc(const char* str_time, const char* str_date) {
 
 #if !defined(AWS_NO_SERIAL)
 void serial_output() {
-    Serial.print("Yuktix H ");
+    Serial.print("Yuktix H");
     if(dht22_code !=  DHT_ERROR_NONE) { 
-        Serial.println("ERR ");
+        Serial.println("ERR");
         Serial.print(dht22_code);
         
     } else {
         Serial.println(humidity);
-        Serial.print("T ");
+        Serial.print(" T");
         Serial.print(dht22_temp);
     }
 
-    Serial.print(" P ");
+    Serial.print(" P");
     Serial.print(pressure);
-    Serial.print(" R ");
+    Serial.print(" R");
     Serial.print(rain_counter);
 
 }
 #endif
 
 #if !defined(AWS_NO_LCD)
-void lcd_output(DHT22_ERROR_t dht22_code) {
+void lcd_output() {
   
     int t1 ;
     int p1 ;
@@ -230,43 +273,4 @@ void lcd_output(DHT22_ERROR_t dht22_code) {
 
 void loop() {
 
-     // DHT22 pin needs 2 seconds
-    for(int i = 0 ; i < 250 ; i++) {
-        delayMicroseconds(10000);
-        if(i % 100 == 0 ) { 
-            wdt_reset(); 
-        }
-    }
-    
-    dht22_code = myDHT22.readData();
-    
-    if(dht22_code == DHT_ERROR_NONE) {
-        dht22_temp = myDHT22.getTemperatureC();
-        humidity = myDHT22.getHumidity();
-        
-    } else {
-        // absurd value
-        dht22_temp = 9999.0 ;
-    }
-
-    pressure = bmp.readPressure();
-
-#if !defined(AWS_NO_SERIAL)
-    serial_output();
-#endif
-
-#if !defined(AWS_NO_LCD)
-    lcd_output();
-#endif
-
-    wdt_reset();
-
-    // total delay 30 seconds
-    for(int i = 0 ; i < 2750 ; i++) {
-        delayMicroseconds(10000);
-        // pat watchdog every second
-        if(i % 100 == 0 ) { 
-            wdt_reset(); 
-        }
-    }
 }
