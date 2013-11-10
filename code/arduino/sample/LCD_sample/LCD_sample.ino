@@ -5,7 +5,7 @@
 
 #include <LiquidCrystal.h>
 //pin 8to13 used for interfacing via sheild 
-LiquidCrystal lcd(7, 8, 9, 10, 11, 12);
+LiquidCrystal lcd(8, 9, 10, 11, 12, 13);
 
 int backLight = 13;    // pin 13 will control the backlight
 
