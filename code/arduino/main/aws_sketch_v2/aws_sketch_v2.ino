@@ -24,6 +24,7 @@
 
 #define DHT22_PIN 6
 #define AWS_NO_SERIAL 1 
+#define DS1307_CTRL_ID 0x68 
 
 // Analog pin A4(SDA),A5(SCL)
 Adafruit_BMP085 bmp;
@@ -54,13 +55,6 @@ float humidity ;
 int32_t pressure ;
 float total_rain = 0.0;
 
-const char *month_names[12] = {
-  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
-};
-
-tmElements_t tm;
-
 // return codes
 DHT22_ERROR_t dht22_code ;
 aws_error_t rtc_code ;
@@ -76,7 +70,7 @@ void setup() {
     // DS1307RTC constructor calls Wire.begin()
     // sync interval is default 5 minutes
 
-    rtc_code = init_rtc(__TIME__,__DATE__);
+    rtc_code = init_rtc();
     micro_delay(20);
 
     if(rtc_code == AWS_RTC_ERROR_NONE) {
@@ -219,35 +213,42 @@ void calculate_rain() {
     total_rain = rain_counter * 0.01 ;
 }
 
-aws_error_t init_rtc(const char* str_time, const char* str_date) {
 
-    int hour, min, sec;
-    char month[12]; int day, year;
-    uint8_t month_index;
+uint8_t dec2bcd(uint8_t num) {
+  return ((num/10 * 16) + (num % 10));
+}
 
-    if (sscanf(str_time, "%d:%d:%d", &hour, &min, &sec) != 3) return AWS_RTC_COMPILER_ERROR;
-    if (sscanf(str_date, "%s %d %d", month, &day, &year) != 3) return AWS_RTC_COMPILER_ERROR;
+aws_error_t init_rtc() {
 
-    tm.Hour = hour;
-    tm.Minute = min;
-    tm.Second = sec;
+    aws_error_t code ;
+    byte second =      00; //0-59
+    byte minute =      19; //0-59
+    byte hour =        21; //0-23
+    byte weekDay =     4; //1-7
+    byte monthDay =    27; //1-31
+    byte month =       10; //1-12
+    byte year  =       13; //0-99
 
+    Wire.beginTransmission(DS1307_CTRL_ID);
+    Wire.write((uint8_t)0x00); 
 
-    for (month_index = 0; month_index < 12; month_index++) {
-        if (strcmp(month, month_names[month_index]) == 0) break;
+    Wire.write(dec2bcd(second));
+    Wire.write(dec2bcd(minute));
+    Wire.write(dec2bcd(hour));
+    Wire.write(dec2bcd(weekDay));
+    Wire.write(dec2bcd(monthDay));
+    Wire.write(dec2bcd(month));
+    Wire.write(dec2bcd(year));
+
+    Wire.write((uint8_t)0x00); 
+
+    if(Wire.endTransmission() != 0) {
+        code = AWS_RTC_WRITE_ERROR ;
+    } else {
+        code = AWS_RTC_ERROR_NONE;
     }
 
-    if (month_index >= 12) return AWS_RTC_COMPILER_ERROR;
-
-    tm.Day = day;
-    tm.Month = month_index + 1;
-    tm.Year = CalendarYrToTm(year);
-
-    // set this date time to DS1307 chip
-    bool flag = RTC.write(tm);
-    if(!flag) return AWS_RTC_WRITE_ERROR ;
-
-    return AWS_RTC_ERROR_NONE;
+    return code;
 
 }
 
@@ -310,11 +311,8 @@ void lcd_output() {
 #endif
 
 void loop() {
-
     update_display();
     wdt_reset();
     // refresh in 30 seconds
     micro_delay(2750);
-    // alarm wont work w/o alarm delay
-    Alarm.delay(1000);
 }
