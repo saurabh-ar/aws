@@ -22,8 +22,10 @@
 #include <DS1307RTC.h>
 #include <AWS.h>
 
+// @change pins and output modes 
 #define DHT22_PIN 6
 #define AWS_NO_SERIAL 1 
+#define AWS_NO_GSM 1 
 
 // Analog pin A4(SDA),A5(SCL)
 Adafruit_BMP085 bmp;
@@ -32,11 +34,13 @@ DHT22 myDHT22(DHT22_PIN);
 
 #if !defined(AWS_NO_GSM)
 #include <SoftwareSerial.h>
+// @change gsm rx,tx
 SoftwareSerial gsmSerial(4,5);
 #endif
 
 #if !defined(AWS_NO_LCD)
 #include <LiquidCrystal.h>
+// @change lcd pins
 LiquidCrystal lcd(7,8, 9, 10, 11, 12);
 int lcd_pin = 13;    
 
@@ -52,7 +56,6 @@ volatile unsigned long last_irq_time ;
 float dht22_temp ;
 float humidity ;
 int32_t pressure ;
-float total_rain = 0.0;
 
 const char *month_names[12] = {
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -111,7 +114,7 @@ void setup() {
     micro_delay(20);
 #endif
 
-    Alarm.alarmRepeat(8,30,0, send_bulletin);
+    Alarm.alarmRepeat(8,30,10, send_bulletin);
 
 }
 
@@ -151,7 +154,6 @@ void update_display() {
     }
 
     pressure = bmp.readPressure();
-    calculate_rain();
 
 #if !defined(AWS_NO_SERIAL)
     serial_output();
@@ -184,7 +186,8 @@ void send_bulletin() {
     micro_delay(20);
     gsmSerial.print("AT+CMGF=1\r");
     micro_delay(20);
-    gsmSerial.print("AT+CMGS=\"+918553518338\"\r"); 
+    // @change sms number
+    gsmSerial.print("AT+CMGS=\"+91xxxyyyzzzz\"\r"); 
     micro_delay(20);
     // pat watchdog
     wdt_reset();
@@ -203,7 +206,7 @@ void send_bulletin() {
     gsmSerial.print(" P");
     gsmSerial.print(pressure);
     gsmSerial.print(" R");
-    gsmSerial.print(total_rain);
+    gsmSerial.print(rain_counter);
     gsmSerial.println();
     gsmSerial.write(0x1A);
     micro_delay(100); 
@@ -212,11 +215,6 @@ void send_bulletin() {
 
 #endif
 
-}
-
-void calculate_rain() {
-    // arduino float is 2 decimal places
-    total_rain = rain_counter * 0.01 ;
 }
 
 aws_error_t init_rtc(const char* str_time, const char* str_date) {
@@ -267,7 +265,7 @@ void serial_output() {
     Serial.print(" P");
     Serial.print(pressure);
     Serial.print(" R");
-    Serial.print(total_rain);
+    Serial.print(rain_counter);
 
 }
 #endif
@@ -305,7 +303,7 @@ void lcd_output() {
     p1 = round(pressure/10.0);
     lcd.print(p1);
     lcd.print(" R");
-    lcd.print(total_rain);
+    lcd.print(rain_counter);
 }
 #endif
 
