@@ -315,4 +315,6 @@ void loop() {
     wdt_reset();
     // refresh in 30 seconds
     micro_delay(2750);
+    // alarm wont work w/o alarm delay
+    Alarm.delay(1000);
 }
