@@ -102,6 +102,7 @@ void setup() {
 #endif
 
 #if !defined(AWS_NO_GSM)
+    gsmSerial.begin(9600);
     gsmSerial.println("AT+CMGF=1");
     micro_delay(20);
     gsmSerial.println("AT+CSMS=1");
@@ -314,4 +315,6 @@ void loop() {
     wdt_reset();
     // refresh in 30 seconds
     micro_delay(2750);
+    // alarm wont work w/o alarm delay
+    Alarm.delay(1000);
 }
