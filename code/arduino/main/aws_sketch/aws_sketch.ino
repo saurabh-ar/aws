@@ -167,20 +167,6 @@ void update_display() {
 
 void send_bulletin() {
 
-    int hr = hour();
-
-    // reset rain counter at 9AM
-    // condition >= is for a power failure 
-    // missing the 9'0 clock window
-    if(!rain_counter_reset && (hr >= 9)) {
-        rain_counter_reset = true ;
-        rain_counter = 0 ;
-    } 
-
-    if(hr != 9 && rain_counter_reset) {
-        rain_counter_reset = false ;
-    }
-
 #if !defined(AWS_NO_GSM)
     gsmSerial.print("\r");  
     micro_delay(20);
@@ -199,7 +185,7 @@ void send_bulletin() {
         
     } else {
         gsmSerial.println(humidity);
-        gsmSerial.print(" T");
+        gsmSerial.print("T");
         gsmSerial.print(dht22_temp);
     }
 
@@ -214,6 +200,21 @@ void send_bulletin() {
     wdt_reset();
 
 #endif
+
+    int hr = hour();
+
+    // reset rain counter at 9AM
+    // condition >= is for a power failure 
+    // missing the 9'0 clock window
+    if(!rain_counter_reset && (hr >= 9)) {
+        rain_counter_reset = true ;
+        rain_counter = 0 ;
+    } 
+
+    if(hr != 9 && rain_counter_reset) {
+        rain_counter_reset = false ;
+    }
+    
 
 }
 
