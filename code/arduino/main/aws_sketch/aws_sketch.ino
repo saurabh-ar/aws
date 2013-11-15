@@ -13,6 +13,7 @@
  * 
  */
 
+#include <stdlib.h>
 #include <avr/wdt.h>
 #include <Wire.h>
 #include <DHT22.h>
@@ -24,7 +25,6 @@
 // @change pins and output modes 
 #define DHT22_PIN 6
 #define AWS_NO_SERIAL 1 
-#define AWS_NO_GSM 1 
 
 // Analog pin A4(SDA),A5(SCL)
 Adafruit_BMP085 bmp;
@@ -58,6 +58,7 @@ int32_t pressure ;
 
 // return codes
 DHT22_ERROR_t dht22_code ;
+char* buffer ;
 
 void setup() {
 
@@ -65,6 +66,8 @@ void setup() {
     Serial.begin(9600);
 #endif
 
+    char tmp[1] = {'0' } ;
+    buffer = tmp ;
     // watchdog enabled
     wdt_enable(WDTO_8S);
 
@@ -85,9 +88,14 @@ void setup() {
     // try again
     if(timeStatus()!= timeSet) {
         // CLK error
+        char error[] = "clock error" ;
 #if !defined(AWS_NO_SERIAL)
-        Serial.println("clock error");
+        Serial.println(error);
 #endif
+#if !defined(AWS_NO_LCD)
+       lcd_one_liner(error); 
+        
+#endif 
         for(;;);
     }
 
@@ -107,7 +115,7 @@ void setup() {
     micro_delay(20);
 #endif
 
-    Alarm.alarmRepeat(8,30,10, send_bulletin);
+    Alarm.alarmRepeat(21,55,10, send_bulletin);
 
 }
 
@@ -133,6 +141,8 @@ void micro_delay(int n) {
 
 void update_display() {
     
+    char output[33] ;
+    output[0] = 'T' ;
     // DHT22 pin needs 2 seconds
     micro_delay(250);
     dht22_code = myDHT22.readData();
@@ -140,13 +150,41 @@ void update_display() {
     if(dht22_code == DHT_ERROR_NONE) {
         dht22_temp = myDHT22.getTemperatureC();
         humidity = myDHT22.getHumidity();
+        // print H and T into char buffer
+        dtostrf(dht22_temp,5,1,output+1);  
+        output[6] = ' ' ;
+        output[7] = 'H' ;
+        dtostrf(humidity,4,1,output + 8);  
+        output[12] = '%' ;
+        for(int i = 13 ; i < 16; i++) { output[i] = ' '; }
         
     } else {
-        // absurd value
-        dht22_temp = 9999.0 ;
+        output[1] = ' ';
+        output[2] = 'E';
+        output[3] = 'R';
+        output[4] = 'R';
+        output[5] = 'O';
+        output[6] = 'R';
+        for(int i = 7 ; i < 16; i++) { output[i] = ' '; }
     }
 
+    output[16] = 'P' ;
     pressure = bmp.readPressure();
+    pressure = round(pressure/100.0) ;
+    sprintf(output+17,"%-5d",pressure);
+    output[22] = ' ';
+    output[23] = 'R';
+    
+    // more rain in a day than cherapunji 
+    // receives in a year!
+    sprintf(output+24,"%-5d",rain_counter);
+    for(int i = 29 ; i < 32; i++){ output[i] = ' ' ; }
+    // null  
+    output[32] = '\0' ;
+
+    buffer = output ;
+    
+
 
 #if !defined(AWS_NO_SERIAL)
     serial_output();
@@ -166,27 +204,12 @@ void send_bulletin() {
     gsmSerial.print("AT+CMGF=1\r");
     micro_delay(20);
     // @change sms number
-    gsmSerial.print("AT+CMGS=\"+91xxxyyyzzzz\"\r"); 
+    gsmSerial.print("AT+CMGS=\"+919886124428\"\r"); 
     micro_delay(20);
     // pat watchdog
     wdt_reset();
+    for(int i = 0 ; i < 32 ;i++) { gsmSerial.print(buffer[i]); }
 
-    gsmSerial.print("Yuktix H");
-    if(dht22_code !=  DHT_ERROR_NONE) { 
-        gsmSerial.println("ERR");
-        gsmSerial.print(dht22_code);
-        
-    } else {
-        gsmSerial.println(humidity);
-        gsmSerial.print("T");
-        gsmSerial.print(dht22_temp);
-    }
-
-    gsmSerial.print(" P");
-    gsmSerial.print(pressure);
-    gsmSerial.print(" R");
-    gsmSerial.print(rain_counter);
-    gsmSerial.println();
     gsmSerial.write(0x1A);
     micro_delay(100); 
     // pat watchdog
@@ -213,60 +236,46 @@ void send_bulletin() {
 
 #if !defined(AWS_NO_SERIAL)
 void serial_output() {
-    Serial.print("Yuktix H");
-    if(dht22_code !=  DHT_ERROR_NONE) { 
-        Serial.println("ERR");
-        Serial.print(dht22_code);
-        
-    } else {
-        Serial.println(humidity);
-        Serial.print(" T");
-        Serial.print(dht22_temp);
-    }
+    int hh = hour();
+    int mm = minute();
+    int ss = second();
 
-    Serial.print(" P");
-    Serial.print(pressure);
-    Serial.print(" R");
-    Serial.print(rain_counter);
+    char ts[9] ;
+    sprintf(ts,"%d:%d:%d",hh,mm,ss);
+    // time
+    Serial.println(ts);
+    // data
+    Serial.println(buffer);
 
 }
+
 #endif
 
 #if !defined(AWS_NO_LCD)
 void lcd_output() {
   
-    int t1 ;
-    int p1 ;
-    int h1 ;
-    
     pinMode(lcd_pin, OUTPUT);
     digitalWrite(lcd_pin, HIGH);
     lcd.begin(16,2);       
     lcd.clear();
     // line1
     lcd.setCursor(0,0);
-    lcd.print("YUKTIX H");
-    if(dht22_code !=  DHT_ERROR_NONE) { 
-        lcd.print("ERR");
-        lcd.setCursor(0,1);
-        lcd.print(dht22_code);
-        
-    } else {
-        h1 = round(humidity);
-        lcd.print(h1);
-        lcd.print("%");
-        lcd.setCursor(0,1);
-        lcd.print("T");
-        t1 = round(dht22_temp);
-        lcd.print(t1);
-    }
-
-    lcd.print(" P");
-    p1 = round(pressure/10.0);
-    lcd.print(p1);
-    lcd.print(" R");
-    lcd.print(rain_counter);
+    for(int i = 0 ; i < 15; i++){ lcd.print(buffer[i]); }
+    lcd.setCursor(0,1);
+    for(int i = 16 ; i < 32; i++){ lcd.print(buffer[i]); }
 }
+
+void lcd_one_liner(char* str) {
+    pinMode(lcd_pin, OUTPUT);
+    digitalWrite(lcd_pin, HIGH);
+    lcd.begin(16,2);       
+    lcd.clear();
+    // line1
+    lcd.setCursor(0,0);
+    lcd.print(str);
+
+}
+
 #endif
 
 void loop() {
@@ -278,3 +287,4 @@ void loop() {
     // alarm wont work w/o alarm delay
     Alarm.delay(1000);
 }
+
