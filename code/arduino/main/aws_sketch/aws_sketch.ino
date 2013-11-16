@@ -58,7 +58,6 @@ int32_t pressure ;
 
 // return codes
 DHT22_ERROR_t dht22_code ;
-char* buffer ;
 
 void setup() {
 
@@ -66,8 +65,6 @@ void setup() {
     Serial.begin(9600);
 #endif
 
-    char tmp[1] = {'0' } ;
-    buffer = tmp ;
     // watchdog enabled
     wdt_enable(WDTO_8S);
 
@@ -139,9 +136,9 @@ void micro_delay(int n) {
     }
 }
 
-void update_display() {
+void update_display(char* output) {
     
-    char output[33] ;
+    // char output[33] ;
     output[0] = 'T' ;
     // DHT22 pin needs 2 seconds
     micro_delay(250);
@@ -171,7 +168,7 @@ void update_display() {
     output[16] = 'P' ;
     pressure = bmp.readPressure();
     pressure = round(pressure/100.0) ;
-    sprintf(output+17,"%-5d",pressure);
+    sprintf(output+17,"%-5lu",pressure);
     output[22] = ' ';
     output[23] = 'R';
     
@@ -181,24 +178,14 @@ void update_display() {
     for(int i = 29 ; i < 32; i++){ output[i] = ' ' ; }
     // null  
     output[32] = '\0' ;
-
-    buffer = output ;
-    
-
-
-#if !defined(AWS_NO_SERIAL)
-    serial_output();
-#endif
-
-#if !defined(AWS_NO_LCD)
-    lcd_output();
-#endif
-
 }
 
 void send_bulletin() {
 
 #if !defined(AWS_NO_GSM)
+    char buffer[33] ;
+    update_display(buffer);
+
     gsmSerial.print("\r");  
     micro_delay(20);
     gsmSerial.print("AT+CMGF=1\r");
@@ -208,9 +195,11 @@ void send_bulletin() {
     micro_delay(20);
     // pat watchdog
     wdt_reset();
-    for(int i = 0 ; i < 32 ;i++) { gsmSerial.print(buffer[i]); }
 
+    gsmSerial.print(buffer);
+    gsmSerial.println();
     gsmSerial.write(0x1A);
+
     micro_delay(100); 
     // pat watchdog
     wdt_reset();
@@ -235,7 +224,7 @@ void send_bulletin() {
 }
 
 #if !defined(AWS_NO_SERIAL)
-void serial_output() {
+void serial_output(char* buffer) {
     int hh = hour();
     int mm = minute();
     int ss = second();
@@ -252,7 +241,7 @@ void serial_output() {
 #endif
 
 #if !defined(AWS_NO_LCD)
-void lcd_output() {
+void lcd_output(char* buffer) {
   
     pinMode(lcd_pin, OUTPUT);
     digitalWrite(lcd_pin, HIGH);
@@ -265,14 +254,14 @@ void lcd_output() {
     for(int i = 16 ; i < 32; i++){ lcd.print(buffer[i]); }
 }
 
-void lcd_one_liner(char* str) {
+void lcd_one_liner(char* buffer) {
     pinMode(lcd_pin, OUTPUT);
     digitalWrite(lcd_pin, HIGH);
     lcd.begin(16,2);       
     lcd.clear();
     // line1
     lcd.setCursor(0,0);
-    lcd.print(str);
+    lcd.print(buffer);
 
 }
 
@@ -280,7 +269,15 @@ void lcd_one_liner(char* str) {
 
 void loop() {
 
-    update_display();
+    char buffer[33];
+    update_display(buffer);
+#if !defined(AWS_NO_SERIAL)
+    serial_output(buffer);
+#endif
+
+#if !defined(AWS_NO_LCD)
+    lcd_output(buffer);
+#endif
     wdt_reset();
     // refresh in 30 seconds
     micro_delay(2750);
