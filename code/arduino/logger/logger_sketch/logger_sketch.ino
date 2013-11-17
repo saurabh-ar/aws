@@ -74,7 +74,7 @@ void log_data() {
     int ss = second();
 
     // time
-    sprintf(buffer,"%d:%d:%d,%d,%d",hh,mm,ss);
+    sprintf(buffer,"%d:%d:%d,",hh,mm,ss);
 
     int dht11_code = DHT11.read(DHT11_PIN);
     if(dht11_code != 0 ) {
