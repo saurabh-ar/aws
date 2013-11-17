@@ -27,7 +27,7 @@
 // used as the CS pin, the hardware CS pin (10 on most Arduino boards,
 // 53 on the Mega) must be left as an output or the SD library
 // functions will not work.
-const int chipSelect = 10;
+const int chipSelect = 4;
 
 File dataFile;
 
@@ -54,9 +54,9 @@ void setup()
   Serial.println("card initialized.");
   
   // Open up the file we're going to log to!
-  dataFile = SD.open("yuktix.dat", FILE_WRITE);
+  dataFile = SD.open("datalog.txt", FILE_WRITE);
   if (! dataFile) {
-    Serial.println("error opening yuktix.dat");
+    Serial.println("error opening datalog.txt");
     // Wait forever since we cant write data
     while (1) ;
   }
