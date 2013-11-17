@@ -1,0 +1,43 @@
+
+LCD Pins - refer this http://learn.adafruit.com/character-lcds/wiring-a-character-lcd
+16-Gnd
+15-Vcc +5volts
+14-DIgital pin 12
+13-DIgital pin 11
+12-DIgital pin 10
+11-DIgital pin 9
+10,9,8,7 - not used
+6- DIgital pin 8
+5- GND
+4- DIgital pin 7
+3- Through 1k resistorto gnd
+2- Vcc +5Volts
+1- Gnd
+
+DHT22 pins
+1- Vcc
+2- DIgital pin 6
+3,4 -Ground
+
+BP085 Pins (I2C protocol)
+Vcc - 3.3 volts ( NOT 5 VOLTS)
+SDA - Analog pin 4 ( A4 )
+SCL - Analog pin 5 ( A5 )
+XCLR, EOC - Not used
+GND - Ground
+
+Davis Rain Guagev(RJ11 Port)
+Red - +5V
+Green + Yellow - Digital Pin 2 (pulled down by 10k Resistor)
+Black- Not used
+
+DS1307 RTC (I2C Protocol )
+Vcc - 5V
+SDA - Analog pin 4 ( A4 )
+SCL - Analog pin 5 ( A5 )
+GND - Ground
+
+GSM 900 Module-
+Tx  - Digital 4 pin of arduino
+Rx  - Digital 5 pin of arduino
+Gnd - Ground
