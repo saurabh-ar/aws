@@ -15,9 +15,15 @@
 #include <dht11.h>
 
 
+#include <SPI.h>
+#include <SD.h>
+
+
 #define DHT11_PIN 3 
 
 dht11 DHT11;
+const int chipSelect = 10;
+File dataFile;
 
 
 void setup() {
@@ -41,6 +47,21 @@ void setup() {
         for(;;);
     }
 
+    // initialize SD card
+    pinMode(SS, OUTPUT);
+        if (!SD.begin(chipSelect)) {
+        Serial.println("Card failed, or not present");
+        // don't do anything more:
+        while (1) ;
+    }
+
+    dataFile = SD.open("yuktix.dat", FILE_WRITE);
+    if (! dataFile) {
+        Serial.println("error opening yuktix.dat");
+        // Wait forever since we cant write data
+        while (1) ;
+    }
+
     Alarm.timerRepeat(10, log_data);
 
 }
@@ -53,7 +74,7 @@ void log_data() {
     int ss = second();
 
     // time
-    sprintf(buffer,"%d:%d:%d,%d,%d",hh,mm,ss);
+    sprintf(buffer,"%d:%d:%d,",hh,mm,ss);
 
     int dht11_code = DHT11.read(DHT11_PIN);
     if(dht11_code != 0 ) {
@@ -65,8 +86,12 @@ void log_data() {
     }
 
     buffer[16] = '\0' ;
-    micro_delay(200);
+    // @debug
     Serial.println(buffer);
+    // write to SD card
+    dataFile.println(buffer);
+    dataFile.flush();
+    
 }
 
 // param n is to ensure n*10 ms delay
