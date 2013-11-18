@@ -19,10 +19,10 @@
 #include <SD.h>
 
 
-#define DHT11_PIN 3 
+#define DHT11_PIN 2 
 
 dht11 DHT11;
-const int chipSelect = 10;
+const int chipSelect = 9;
 File dataFile;
 
 
@@ -49,19 +49,12 @@ void setup() {
 
     // initialize SD card
     pinMode(SS, OUTPUT);
-        if (!SD.begin(chipSelect)) {
+    if (!SD.begin(chipSelect)) {
         Serial.println("Card failed, or not present");
         // don't do anything more:
         while (1) ;
     }
-
-    dataFile = SD.open("yuktix.dat", FILE_WRITE);
-    if (! dataFile) {
-        Serial.println("error opening yuktix.dat");
-        // Wait forever since we cant write data
-        while (1) ;
-    }
-
+    
     Alarm.timerRepeat(10, log_data);
 
 }
@@ -72,26 +65,34 @@ void log_data() {
     int hh = hour();
     int mm = minute();
     int ss = second();
-
     // time
-    sprintf(buffer,"%d:%d:%d,",hh,mm,ss);
+    sprintf(buffer,"%02d:%02d:%02d,",hh,mm,ss);
 
     int dht11_code = DHT11.read(DHT11_PIN);
+    micro_delay(200);
+    
+    dataFile = SD.open("yuktix.log", O_CREAT | O_WRITE | O_APPEND);
+    if (! dataFile) {
+      Serial.println("error opening yuktix.log");
+      // Wait forever since we cant write data
+      while (1) ;
+    }
+       
     if(dht11_code != 0 ) {
         // error
         sprintf(buffer+9,"%7s","error");
 
     } else {
-        sprintf(buffer+9,"%-3d,%-3d",DHT11.temperature, DHT11.humidity);
+        sprintf(buffer+9,"%-03d,%-03d",DHT11.temperature,DHT11.humidity);
     }
 
     buffer[16] = '\0' ;
-    // @debug
-    Serial.println(buffer);
+    
     // write to SD card
     dataFile.println(buffer);
-    dataFile.flush();
-    
+    dataFile.close();  
+    micro_delay(10);
+  
 }
 
 // param n is to ensure n*10 ms delay
@@ -104,7 +105,9 @@ void micro_delay(int n) {
 }
 
 void loop() {
-    // alarm wont work w/o alarm delay
-    Alarm.delay(1000);
+  
+  // alarm wont work w/o alarm delay
+  Alarm.delay(1000);
+ 
 }
 
