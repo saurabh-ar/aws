@@ -16,13 +16,18 @@
 
 #include <SPI.h>
 #include <SD.h>
+#include <LiquidCrystal.h>
 
-
+// @change pins
 #define DHT11_PIN 2 
 
-dht11 DHT11;
+int lcd_pin = 13;    
+int ldr_pin = A0 ;
 const int chipSelect = 9;
+
+dht11 DHT11;
 File dataFile;
+LiquidCrystal lcd(7,8, 9, 10, 11, 12);
 
 
 void setup() {
@@ -42,7 +47,9 @@ void setup() {
     if(timeStatus()!= timeSet) {
         // CLK error
         char error[] = "clock error" ;
+		char line2[]= "***" ;
         Serial.println(error);
+		lcd_print(error,line2);	
         for(;;);
     }
 
@@ -54,13 +61,57 @@ void setup() {
         while (1) ;
     }
     
+	// LCD
+	
     Alarm.timerRepeat(10, log_data);
 
 }
 
-void log_data() {
+void lcd_print(char* line1, char* line2) {
 
-    char buffer[26] ;
+    pinMode(lcd_pin, OUTPUT);
+    digitalWrite(lcd_pin, HIGH);
+    lcd.begin(16,2);       
+    lcd.clear();
+    // line1
+    lcd.setCursor(0,0);
+    lcd.print(line1); 
+    lcd.setCursor(0,1);
+    lcd.print(line2); 
+}
+
+log_data() {
+
+    char ts[18] ;
+	char data[12] ;
+	get_sensor_data(ts,data);
+
+    dataFile = SD.open("yuktix.log", O_CREAT | O_WRITE | O_APPEND);
+    if (! dataFile) {
+      Serial.println("error opening yuktix.log");
+      // Wait forever since we cant write data
+      while (1) ;
+    }
+
+    // write to SD card
+    dataFile.print(ts);
+    dataFile.print(",");
+    dataFile.println(data);
+	micro_delay(20);
+    dataFile.close();  
+    micro_delay(20);
+
+    int hh = hour();
+    int mm = minute();
+	char line2[6] ;
+	sprintf(line2,"%02d:%02d",hh,mm);
+	
+	lcd_print(line2,data);
+
+}
+
+void get_sensor_data(char* ts, char* data) {
+
     // timestamp
     int hh = hour();
     int mm = minute();
@@ -70,33 +121,24 @@ void log_data() {
 	int dd = day();
 
 	// 18 char excel timestamp
-    sprintf(buffer,"%02d-%02d-%02d %02d:%02d:%02d,",yyyy,mm,dd,hh,mm,ss);
+    sprintf(ts,"%02d-%02d-%02d %02d:%02d:%02d",yyyy,mm,dd,hh,mm,ss);
+	ts[17] = '\0' ;	
 
+	// sensors
     int dht11_code = DHT11.read(DHT11_PIN);
     micro_delay(200);
-    
-    dataFile = SD.open("yuktix.log", O_CREAT | O_WRITE | O_APPEND);
-    if (! dataFile) {
-      Serial.println("error opening yuktix.log");
-      // Wait forever since we cant write data
-      while (1) ;
-    }
-       
+	int ldr = analogRead(LDR_Pin); 
+	
     if(dht11_code != 0 ) {
         // error
-        sprintf(buffer+18,"%7s","error");
+        sprintf(data,"%11s","TH_ERR");
 
     } else {
-        sprintf(buffer+18,"%-03d,%-03d",DHT11.temperature,DHT11.humidity);
+		// 11 char wide data
+        sprintf(data,"%-03d,%-02d,%-04d",DHT11.temperature,DHT11.humidity,ldr);
     }
 
-    buffer[25] = '\0' ;
-    
-    // write to SD card
-    dataFile.println(buffer);
-    dataFile.close();  
-    micro_delay(10);
-  
+    data[11] = '\0' ;
 }
 
 // param n is to ensure n*10 ms delay
@@ -114,4 +156,3 @@ void loop() {
   Alarm.delay(1000);
  
 }
-
