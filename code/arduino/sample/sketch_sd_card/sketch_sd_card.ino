@@ -27,17 +27,16 @@
 // used as the CS pin, the hardware CS pin (10 on most Arduino boards,
 // 53 on the Mega) must be left as an output or the SD library
 // functions will not work.
-const int chipSelect = 10;
+const int chipSelect = 9;
 
 File dataFile;
+volatile int counter ;
 
 void setup()
 {
  // Open serial communications and wait for port to open:
   Serial.begin(9600);
-   while (!Serial) {
-    ; // wait for serial port to connect. Needed for Leonardo only
-  }
+
 
 
   Serial.print("Initializing SD card...");
@@ -53,33 +52,23 @@ void setup()
   }
   Serial.println("card initialized.");
   
+ 
+  
+  counter = 1001 ;
+}
+
+void log_data() {
+  
   // Open up the file we're going to log to!
-  dataFile = SD.open("yuktix.dat", FILE_WRITE);
+  dataFile = SD.open("test2.dat", O_CREAT | O_WRITE | O_APPEND);
   if (! dataFile) {
     Serial.println("error opening yuktix.dat");
     // Wait forever since we cant write data
     while (1) ;
   }
-}
-
-void loop()
-{
-  // make a string for assembling the data to log:
-  String dataString = "";
-
-  // read three sensors and append to the string:
-  for (int analogPin = 0; analogPin < 3; analogPin++) {
-    int sensor = analogRead(analogPin);
-    dataString += String(sensor);
-    if (analogPin < 2) {
-      dataString += ","; 
-    }
-  }
-
-  dataFile.println(dataString);
-
-  // print to the serial port too:
-  Serial.println(dataString);
+  
+  counter += 1 ;
+  dataFile.println(counter);
   
   // The following line will 'save' the file to the SD card after every
   // line of data - this will use more power and slow down how much data
@@ -87,10 +76,17 @@ void loop()
   // If you want to speed up the system, remove the call to flush() and it
   // will save the file only every 512 bytes - every time a sector on the 
   // SD card is filled with data.
-  dataFile.flush();
+  dataFile.close();
   
+}
+
+
+void loop()
+{
+  
+  log_data();
   // Take 1 measurement every 500 milliseconds
-  delay(500);
+  delay(1000);
 }
 
 
