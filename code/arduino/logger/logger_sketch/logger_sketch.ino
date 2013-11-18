@@ -14,7 +14,6 @@
 #include <DS1307RTC.h>
 #include <dht11.h>
 
-
 #include <SPI.h>
 #include <SD.h>
 
@@ -61,12 +60,17 @@ void setup() {
 
 void log_data() {
 
-    char buffer[17] ;
+    char buffer[26] ;
+    // timestamp
     int hh = hour();
     int mm = minute();
     int ss = second();
-    // time
-    sprintf(buffer,"%02d:%02d:%02d,",hh,mm,ss);
+	int yyyy = year();
+	int mm = month();
+	int dd = day();
+
+	// 18 char excel timestamp
+    sprintf(buffer,"%02d-%02d-%02d %02d:%02d:%02d,",yyyy,mm,dd,hh,mm,ss);
 
     int dht11_code = DHT11.read(DHT11_PIN);
     micro_delay(200);
@@ -80,13 +84,13 @@ void log_data() {
        
     if(dht11_code != 0 ) {
         // error
-        sprintf(buffer+9,"%7s","error");
+        sprintf(buffer+18,"%7s","error");
 
     } else {
-        sprintf(buffer+9,"%-03d,%-03d",DHT11.temperature,DHT11.humidity);
+        sprintf(buffer+18,"%-03d,%-03d",DHT11.temperature,DHT11.humidity);
     }
 
-    buffer[16] = '\0' ;
+    buffer[25] = '\0' ;
     
     // write to SD card
     dataFile.println(buffer);
