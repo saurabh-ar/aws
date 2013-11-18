@@ -21,13 +21,13 @@
 // @change pins
 #define DHT11_PIN 2 
 
-int lcd_pin = 13;    
-int ldr_pin = A0 ;
+int LCD_PIN = 13;    
+int LDR_PIN = A0 ;
 const int chipSelect = 9;
 
 dht11 DHT11;
 File dataFile;
-LiquidCrystal lcd(7,8, 9, 10, 11, 12);
+LiquidCrystal lcd(7,8, 3, 4, 5, 6);
 
 
 void setup() {
@@ -69,8 +69,8 @@ void setup() {
 
 void lcd_print(char* line1, char* line2) {
 
-    pinMode(lcd_pin, OUTPUT);
-    digitalWrite(lcd_pin, HIGH);
+    pinMode(LCD_PIN, OUTPUT);
+    digitalWrite(LCD_PIN, HIGH);
     lcd.begin(16,2);       
     lcd.clear();
     // line1
@@ -80,7 +80,7 @@ void lcd_print(char* line1, char* line2) {
     lcd.print(line2); 
 }
 
-log_data() {
+void log_data() {
 
     char ts[18] ;
 	char data[12] ;
@@ -117,17 +117,17 @@ void get_sensor_data(char* ts, char* data) {
     int mm = minute();
     int ss = second();
 	int yyyy = year();
-	int mm = month();
+	int mt = month();
 	int dd = day();
 
 	// 18 char excel timestamp
-    sprintf(ts,"%02d-%02d-%02d %02d:%02d:%02d",yyyy,mm,dd,hh,mm,ss);
+    sprintf(ts,"%02d-%02d-%02d %02d:%02d:%02d",yyyy,mt,dd,hh,mm,ss);
 	ts[17] = '\0' ;	
 
 	// sensors
     int dht11_code = DHT11.read(DHT11_PIN);
     micro_delay(200);
-	int ldr = analogRead(LDR_Pin); 
+	int ldr = analogRead(LDR_PIN); 
 	
     if(dht11_code != 0 ) {
         // error
